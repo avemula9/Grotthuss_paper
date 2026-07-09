@@ -1,0 +1,45 @@
+############################################################################################################
+# lammps MD script to perform the simulation of NaOH solution and compute the diffusion coefficient of OH-.  
+
+units           real
+atom_style      full
+pair_style      lj/cut/coul/long 12.0  12.0
+boundary        p p p
+kspace_style    pppm 1e-4
+bond_style      harmonic
+angle_style     harmonic
+dihedral_style  fourier
+improper_style  cvff
+special_bonds   amber
+pair_modify     mix arithmetic
+
+################################################################################
+dielectric 1.0
+neighbor 3.0 bin
+neigh_modify delay 0 every 1 check yes
+#neigh_modify one 20000 page 200000
+timestep 1.0
+################################################################################
+
+read_restart    nvt.restart
+reset_timestep  0           
+
+variable	runsteps equal 1000000
+group OH_wt molecule > 4
+
+molecule mol1 unreacted_template
+molecule mol2 reacted_template
+
+thermo 1000
+
+fix myrxns all bond/react stabilization yes statted_grp .03 reset_mol_ids molmap &
+  react rxn1 all 1 0.0 1.5 mol1 mol2 map02 rate_limit 1 1
+
+fix 1 statted_grp_REACT nvt temp 300 300 100
+
+thermo_style custom step temp pe etotal press density f_myrxns[1] 
+
+dump mydmp1 OH_wt custom 1000 linear.lammpstrj id mol type x y z xu yu zu
+run ${runsteps}
+write_restart restart.run
+write_data reacter_done.lmps
